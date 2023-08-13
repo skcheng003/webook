@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	regexp "github.com/dlclark/regexp2"
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/skcheng003/webook/internal/domain"
 	"github.com/skcheng003/webook/internal/service"
@@ -15,6 +16,8 @@ const (
 )
 
 var ErrUserDuplicateEmail = service.ErrUserDuplicateEmail
+var ErrUserNoFound = service.ErrUserNoFound
+var ErrInvalidUserOrPassword = service.ErrInvalidUserOrPassword
 
 type UserHandler struct {
 	svc              *service.UserService
@@ -94,11 +97,36 @@ func (u *UserHandler) SignUp(ctx *gin.Context) {
 		return
 	}
 
-	ctx.String(http.StatusOK, "sign up success")
+	ctx.String(http.StatusOK, "Sign up successful!")
 }
 
 func (u *UserHandler) Login(ctx *gin.Context) {
+	type LoginReq struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
 
+	var req LoginReq
+	if err := ctx.Bind(&req); err != nil {
+		return
+	}
+
+	user, err := u.svc.Login(ctx, req.Email, req.Password)
+	if errors.Is(err, ErrUserNoFound) || errors.Is(err, ErrInvalidUserOrPassword) {
+		ctx.String(http.StatusOK, "username or password wrong")
+		return
+	}
+	if err != nil {
+		ctx.String(http.StatusOK, "system error")
+		return
+	}
+
+	sess := sessions.Default(ctx)
+	// 在session中放值
+	sess.Set("userId", user.Id)
+	sess.Save()
+	ctx.String(http.StatusOK, "Log in successful!")
+	return
 }
 
 func (u *UserHandler) Profile(ctx *gin.Context) {
