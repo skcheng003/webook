@@ -48,12 +48,20 @@ func (dao *UserDAO) Insert(ctx context.Context, u User) error {
 	return err
 }
 
+func (dao *UserDAO) EditProfile(ctx context.Context, u User) error {
+	return dao.db.WithContext(ctx).Where("email = ?", u.Email).
+		Updates(User{Nickname: u.Nickname, Birth: u.Birth, Bio: u.Bio}).Error
+}
+
 // User 直接对应数据库表结构，entity 或 Model
 // PO(persistent object)
 type User struct {
 	Id       int64  `gorm:"primaryKey, autoIncrement"`
 	Email    string `gorm:"unique"`
 	Password string
+	Nickname string
+	Birth    string
+	Bio      string
 	Ctime    int64
 	Utime    int64
 }

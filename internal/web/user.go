@@ -120,7 +120,6 @@ func (u *UserHandler) Login(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "system error")
 		return
 	}
-
 	sess := sessions.Default(ctx)
 	// 在session中放值
 	sess.Set("userId", user.Id)
@@ -134,5 +133,29 @@ func (u *UserHandler) Profile(ctx *gin.Context) {
 }
 
 func (u *UserHandler) Edit(ctx *gin.Context) {
+	type EditReq struct {
+		Email    string `json:"email"`
+		Nickname string `json:"nickname"`
+		Birth    string `json:"birth"`
+		Bio      string `json:"bio"`
+	}
+	var req EditReq
+	if err := ctx.Bind(&req); err != nil {
+		return
+	}
 
+	err := u.svc.Edit(ctx, domain.User{
+		Email:    req.Email,
+		Nickname: req.Nickname,
+		Birth:    req.Birth,
+		Bio:      req.Bio,
+	})
+
+	if errors.Is(err, ErrUserNoFound) {
+		ctx.String(http.StatusOK, "system error, user no found")
+		return
+	}
+
+	ctx.String(http.StatusOK, "Update profile successful!")
+	return
 }

@@ -28,12 +28,12 @@ func (svc *UserService) SignUp(ctx context.Context, u domain.User) error {
 		return err
 	}
 	u.Password = string(hash)
-	return svc.repo.Create(ctx, u)
+	return svc.repo.CreateUser(ctx, u)
 }
 
 func (svc *UserService) Login(ctx context.Context, email string, password string) (domain.User, error) {
 	u, err := svc.repo.FindByEmail(ctx, email)
-	if errors.Is(err, repository.ErrUserNoFound) {
+	if errors.Is(err, ErrUserNoFound) {
 		return domain.User{}, ErrUserNoFound
 	}
 
@@ -48,4 +48,8 @@ func (svc *UserService) Login(ctx context.Context, email string, password string
 		return domain.User{}, ErrInvalidUserOrPassword
 	}
 	return u, nil
+}
+
+func (svc *UserService) Edit(ctx context.Context, user domain.User) error {
+	return svc.repo.EditProfile(ctx, user)
 }
