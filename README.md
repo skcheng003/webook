@@ -8,7 +8,7 @@ Now supports:
 + Edit user's profile.
 + Query user's profile.
 
-A lot of new functions on the way...
+A lot of new features on the way...
 
 ---
 
