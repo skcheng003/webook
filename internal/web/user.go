@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	emailRegexPattern   = "^\\w+([-+.]\\w+)*@\\w+([-.]\\w+)*\\.\\w+([-.]\\w+)*$"
-	passwordRegexPatter = `^(?=.*[A-Za-z])(?=.*\d)(?=.*[$@$!%*#?&])[A-Za-z\d$@$!%*#?&]{8,}$`
+	nicknameSize = 16
+	bioSize      = 256
 )
 
 var ErrUserDuplicateEmail = service.ErrUserDuplicateEmail
@@ -23,18 +23,21 @@ type UserHandler struct {
 	svc              *service.UserService
 	emailRegexExp    *regexp.Regexp
 	passwordRegexExp *regexp.Regexp
+	birthRegexExp    *regexp.Regexp
 }
 
 func NewUserHandler(svc *service.UserService) *UserHandler {
 	const (
-		emailRegexPattern   = "^\\w+([-+.]\\w+)*@\\w+([-.]\\w+)*\\.\\w+([-.]\\w+)*$"
-		passwordRegexPatter = `^(?=.*[A-Za-z])(?=.*\d)(?=.*[$@$!%*#?&])[A-Za-z\d$@$!%*#?&]{8,72}$`
+		emailRegexPattern    = "^\\w+([-+.]\\w+)*@\\w+([-.]\\w+)*\\.\\w+([-.]\\w+)*$"
+		passwordRegexPattern = `^(?=.*[A-Za-z])(?=.*\d)(?=.*[$@$!%*#?&])[A-Za-z\d$@$!%*#?&]{8,72}$`
+		birthdayRegexPattern = `\d{4}-\d{2}-\d{2}`
 	)
 
 	return &UserHandler{
 		svc:              svc,
 		emailRegexExp:    regexp.MustCompile(emailRegexPattern, regexp.None),
-		passwordRegexExp: regexp.MustCompile(passwordRegexPatter, regexp.None),
+		passwordRegexExp: regexp.MustCompile(passwordRegexPattern, regexp.None),
+		birthRegexExp:    regexp.MustCompile(birthdayRegexPattern, regexp.None),
 	}
 }
 
@@ -116,6 +119,7 @@ func (u *UserHandler) Login(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "username or password wrong")
 		return
 	}
+
 	if err != nil {
 		ctx.String(http.StatusOK, "system error")
 		return
@@ -126,10 +130,6 @@ func (u *UserHandler) Login(ctx *gin.Context) {
 	sess.Save()
 	ctx.String(http.StatusOK, "Log in successful!")
 	return
-}
-
-func (u *UserHandler) Profile(ctx *gin.Context) {
-	ctx.String(http.StatusOK, "hello profile")
 }
 
 func (u *UserHandler) Edit(ctx *gin.Context) {
@@ -144,7 +144,29 @@ func (u *UserHandler) Edit(ctx *gin.Context) {
 		return
 	}
 
-	err := u.svc.Edit(ctx, domain.User{
+	if len(req.Nickname) > nicknameSize {
+		ctx.String(http.StatusOK, "nickname too long")
+		return
+	}
+
+	if len(req.Bio) > bioSize {
+		ctx.String(http.StatusOK, "bio too long")
+		return
+	}
+
+	isBirth, err := u.birthRegexExp.MatchString(req.Birth)
+
+	if err != nil {
+		ctx.String(http.StatusOK, "system error")
+		return
+	}
+
+	if !isBirth {
+		ctx.String(http.StatusOK, "birthday format wrong")
+		return
+	}
+
+	err = u.svc.EditProfile(ctx, domain.User{
 		Email:    req.Email,
 		Nickname: req.Nickname,
 		Birth:    req.Birth,
@@ -157,5 +179,34 @@ func (u *UserHandler) Edit(ctx *gin.Context) {
 	}
 
 	ctx.String(http.StatusOK, "Update profile successful!")
+	return
+}
+
+func (u *UserHandler) Profile(ctx *gin.Context) {
+
+	type ProfileReq struct {
+		Email string `form:"email"`
+	}
+
+	var req ProfileReq
+
+	if err := ctx.Bind(&req); err != nil {
+		ctx.String(http.StatusOK, "system error")
+		return
+	}
+
+	user, err := u.svc.FindProfile(ctx, req.Email)
+
+	if errors.Is(err, ErrUserNoFound) {
+		ctx.String(http.StatusOK, "profile not exist")
+		return
+	}
+
+	if err != nil {
+		ctx.String(http.StatusOK, "system error")
+		return
+	}
+
+	ctx.String(http.StatusOK, "nickname: %s, birthday: %s, bio: %s", user.Nickname, user.Birth, user.Bio)
 	return
 }

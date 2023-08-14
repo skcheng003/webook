@@ -27,7 +27,6 @@ func (l *LoginMiddlewareBuilder) Build() gin.HandlerFunc {
 				return
 			}
 		}
-
 		sess := sessions.Default(ctx)
 		if sess.Get("userId") == nil {
 			ctx.AbortWithStatus(http.StatusUnauthorized)

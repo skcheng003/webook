@@ -49,8 +49,9 @@ func (dao *UserDAO) Insert(ctx context.Context, u User) error {
 }
 
 func (dao *UserDAO) EditProfile(ctx context.Context, u User) error {
-	return dao.db.WithContext(ctx).Where("email = ?", u.Email).
+	err := dao.db.WithContext(ctx).Where("email = ?", u.Email).
 		Updates(User{Nickname: u.Nickname, Birth: u.Birth, Bio: u.Bio}).Error
+	return err
 }
 
 // User 直接对应数据库表结构，entity 或 Model
@@ -59,9 +60,9 @@ type User struct {
 	Id       int64  `gorm:"primaryKey, autoIncrement"`
 	Email    string `gorm:"unique"`
 	Password string
-	Nickname string
+	Nickname string `gorm:"size: 16"`
 	Birth    string
-	Bio      string
+	Bio      string `gorm:"size: 256"`
 	Ctime    int64
 	Utime    int64
 }
