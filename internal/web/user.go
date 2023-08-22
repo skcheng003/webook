@@ -44,7 +44,7 @@ func NewUserHandler(svc *service.UserService) *UserHandler {
 func (u *UserHandler) RegisterRoutes(server *gin.Engine) {
 	ug := server.Group("/users")
 	ug.POST("/signup", u.SignUp)
-	ug.POST("/login", u.Login)
+	ug.POST("/login", u.LoginJWT)
 	ug.POST("/edit", u.Edit)
 	ug.GET("/profile", u.Profile)
 }
@@ -127,7 +127,51 @@ func (u *UserHandler) Login(ctx *gin.Context) {
 	sess := sessions.Default(ctx)
 	// 在session中放值
 	sess.Set("userId", user.Id)
+	sess.Options(sessions.Options{
+		// Secure: true,
+		// HttpOnly: true,
+		MaxAge: 30 * 60,
+	})
 	sess.Save()
+	ctx.String(http.StatusOK, "Log in successful!")
+	return
+}
+
+func (u *UserHandler) LoginJWT(ctx *gin.Context) {
+	type LoginReq struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	var req LoginReq
+	if err := ctx.Bind(&req); err != nil {
+		return
+	}
+
+	user, err := u.svc.Login(ctx, req.Email, req.Password)
+	if errors.Is(err, ErrUserNoFound) || errors.Is(err, ErrInvalidUserOrPassword) {
+		ctx.String(http.StatusOK, "username or password wrong")
+		return
+	}
+
+	if err != nil {
+		ctx.String(http.StatusOK, "system error")
+		return
+	}
+	sess := sessions.Default(ctx)
+	// 在session中放值
+	sess.Set("userId", user.Id)
+	sess.Options(sessions.Options{
+		// Secure: true,
+		// HttpOnly: true,
+		MaxAge: 30 * 60,
+	})
+	sess.Save()
+
+	// token := jwt.New(jwt.SigningMethodHS512)
+
+	// tokenStr, err := token.SignedString()
+
 	ctx.String(http.StatusOK, "Log in successful!")
 	return
 }
