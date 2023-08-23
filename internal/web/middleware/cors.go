@@ -18,8 +18,8 @@ func (c *CorsMiddlewareBuilder) Build() gin.HandlerFunc {
 	return gincors.New(gincors.Config{
 		// AllowOrigins: []string{"https://localhost:3000"},
 		// AllowMethods: []string{"POST", "GET"},
-		AllowHeaders: []string{"Content-Type", "authorization"},
-		// ExposeHeaders:    []string{"Content-Type", "authorization"},
+		AllowHeaders:  []string{"Content-Type", "authorization"},
+		ExposeHeaders: []string{"x-jwt-token"},
 		// 是否允许cookie
 		AllowCredentials: true,
 		AllowOriginFunc: func(origin string) bool {

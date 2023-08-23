@@ -16,3 +16,9 @@ A lot of new features on the way...
 Get the query parameter from url and display the user's profile:
 
 ![](./image/postman_profile.png)
+
+---
+
+### JSON web token
+
++ TODO: 

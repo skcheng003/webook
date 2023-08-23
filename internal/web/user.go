@@ -5,9 +5,11 @@ import (
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/skcheng003/webook/internal/domain"
 	"github.com/skcheng003/webook/internal/service"
 	"net/http"
+	"time"
 )
 
 const (
@@ -24,6 +26,13 @@ type UserHandler struct {
 	emailRegexExp    *regexp.Regexp
 	passwordRegexExp *regexp.Regexp
 	birthRegexExp    *regexp.Regexp
+}
+
+// UserClaims 用在JWT中
+type UserClaims struct {
+	jwt.RegisteredClaims
+	Uid       int64
+	UserAgent string
 }
 
 func NewUserHandler(svc *service.UserService) *UserHandler {
@@ -46,7 +55,7 @@ func (u *UserHandler) RegisterRoutes(server *gin.Engine) {
 	ug.POST("/signup", u.SignUp)
 	ug.POST("/login", u.LoginJWT)
 	ug.POST("/edit", u.Edit)
-	ug.GET("/profile", u.Profile)
+	ug.GET("/profile", u.ProfileJWT)
 }
 
 func (u *UserHandler) SignUp(ctx *gin.Context) {
@@ -138,6 +147,7 @@ func (u *UserHandler) Login(ctx *gin.Context) {
 }
 
 func (u *UserHandler) LoginJWT(ctx *gin.Context) {
+	// TODO: Log out function
 	type LoginReq struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -158,20 +168,24 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "system error")
 		return
 	}
-	sess := sessions.Default(ctx)
-	// 在session中放值
-	sess.Set("userId", user.Id)
-	sess.Options(sessions.Options{
-		// Secure: true,
-		// HttpOnly: true,
-		MaxAge: 30 * 60,
-	})
-	sess.Save()
 
-	// token := jwt.New(jwt.SigningMethodHS512)
+	// 用 JWT 设置登陆态
+	// 生成一个 JWT token
 
-	// tokenStr, err := token.SignedString()
-
+	claims := UserClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute)),
+		},
+		Uid:       user.Id,
+		UserAgent: ctx.Request.UserAgent(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
+	tokenStr, err := token.SignedString([]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"))
+	if err != nil {
+		ctx.String(http.StatusInternalServerError, "system error, generate token failed")
+		return
+	}
+	ctx.Header("x-jwt-token", tokenStr)
 	ctx.String(http.StatusOK, "Log in successful!")
 	return
 }
@@ -240,6 +254,31 @@ func (u *UserHandler) Profile(ctx *gin.Context) {
 	}
 
 	user, err := u.svc.FindProfile(ctx, req.Email)
+
+	if errors.Is(err, ErrUserNoFound) {
+		ctx.String(http.StatusOK, "profile not exist")
+		return
+	}
+
+	if err != nil {
+		ctx.String(http.StatusOK, "system error")
+		return
+	}
+
+	ctx.String(http.StatusOK, "nickname: %s, birthday: %s, bio: %s", user.Nickname, user.Birth, user.Bio)
+	return
+}
+
+func (u *UserHandler) ProfileJWT(ctx *gin.Context) {
+	c, _ := ctx.Get("claims")
+	claims, ok := c.(*UserClaims)
+
+	if !ok {
+		ctx.String(http.StatusOK, "system error, get claims failed")
+		return
+	}
+
+	user, err := u.svc.FindProfileJWT(ctx, claims.Uid)
 
 	if errors.Is(err, ErrUserNoFound) {
 		ctx.String(http.StatusOK, "profile not exist")

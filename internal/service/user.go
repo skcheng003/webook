@@ -58,3 +58,8 @@ func (svc *UserService) FindProfile(ctx context.Context, email string) (domain.U
 	return svc.repo.FindByEmail(ctx, email)
 	// return domain.User{}, nil
 }
+
+func (svc *UserService) FindProfileJWT(ctx context.Context, uid int64) (domain.User, error) {
+	return svc.repo.FindByUid(ctx, uid)
+	// return domain.User{}, nil
+}

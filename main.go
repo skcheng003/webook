@@ -56,7 +56,7 @@ func initWebServer() *gin.Engine {
 
 	server.Use(sessions.Sessions("ssid", store))
 
-	server.Use(middleware.NewLoginMiddlewareBuilder().
+	server.Use(middleware.NewLoginJWTMiddlewareBuilder().
 		IgnorePath("/users/signup", "/users/login", "/hello").Build())
 
 	return server
@@ -78,7 +78,7 @@ func main() {
 		ctx.String(http.StatusOK, "hello from the other side")
 	})
 
-	server.Run(":8080")
+	server.Run("localhost:8081")
 
 	/*
 
