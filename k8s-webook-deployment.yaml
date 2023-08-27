@@ -5,7 +5,7 @@ metadata:
   labels:
     app: webook
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: webook
@@ -19,5 +19,5 @@ spec:
         - name: webook
           image: acorngrow/webook:v0.0.1
           ports:
-            - containerPort: 8080
+            - containerPort: 8081
       

@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/redis"
+	"github.com/gin-contrib/sessions/memstore"
 	"github.com/gin-gonic/gin"
 	"github.com/skcheng003/webook/config"
 	"github.com/skcheng003/webook/internal/repository"
@@ -43,14 +43,19 @@ func initWebServer() *gin.Engine {
 		println("This is a middleware")
 	})
 
+	/*
+		redisClient := redis.NewClient(&redis.Options{
+			Addr: config.Config.Redis.Addr,
+		})
+		// Using redis as a store for rate limiter
+		server.Use(ratelimit.NewBuilder(redisClient, time.Second, 100).Build())
+	*/
 	server.Use(middleware.NewCorsMiddlewareBuilder().Build())
 
-	store, err := redis.NewStore(16, "tcp", config.Config.Redis.Addr, "",
-		[]byte("W6RUUWNs6W3OYUpxJMG3E4Nj9PStZZUS"), []byte("dUfHJuOWQSSoJNuoPir4fWhwTggzyVDR"))
+	// store, err := redis.NewStore(16, "tcp", config.Config.Redis.Addr, "",
+	//	[]byte("W6RUUWNs6W3OYUpxJMG3E4Nj9PStZZUS"), []byte("dUfHJuOWQSSoJNuoPir4fWhwTggzyVDR"))
 
-	if err != nil {
-		panic(err)
-	}
+	store := memstore.NewStore([]byte("W6RUUWNs6W3OYUpxJMG3E4Nj9PStZZUS"), []byte("dUfHJuOWQSSoJNuoPir4fWhwTggzyVDR"))
 
 	// myStore := sqlx_store.Store{}
 

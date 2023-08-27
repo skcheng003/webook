@@ -55,7 +55,7 @@ func (dao *UserDAO) Insert(ctx context.Context, u User) error {
 }
 
 func (dao *UserDAO) EditProfile(ctx context.Context, u User) error {
-	err := dao.db.WithContext(ctx).Where("email = ?", u.Email).
+	err := dao.db.WithContext(ctx).Where("Id = ?", u.Id).
 		Updates(User{Nickname: u.Nickname, Birth: u.Birth, Bio: u.Bio}).Error
 	return err
 }

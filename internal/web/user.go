@@ -21,6 +21,7 @@ var ErrUserDuplicateEmail = service.ErrUserDuplicateEmail
 var ErrUserNoFound = service.ErrUserNoFound
 var ErrInvalidUserOrPassword = service.ErrInvalidUserOrPassword
 
+// UserHandler is the handler of user
 type UserHandler struct {
 	svc              *service.UserService
 	emailRegexExp    *regexp.Regexp
@@ -28,7 +29,7 @@ type UserHandler struct {
 	birthRegexExp    *regexp.Regexp
 }
 
-// UserClaims 用在JWT中
+// UserClaims is the custom claims struct that will be encoded to a JWT.
 type UserClaims struct {
 	jwt.RegisteredClaims
 	Uid       int64
@@ -174,7 +175,7 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 
 	claims := UserClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
 		},
 		Uid:       user.Id,
 		UserAgent: ctx.Request.UserAgent(),
@@ -192,11 +193,18 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 
 func (u *UserHandler) Edit(ctx *gin.Context) {
 	type EditReq struct {
-		Email    string `json:"email"`
 		Nickname string `json:"nickname"`
 		Birth    string `json:"birth"`
 		Bio      string `json:"bio"`
 	}
+
+	c, _ := ctx.Get("claims")
+	claims, ok := c.(*UserClaims)
+	if !ok {
+		ctx.String(http.StatusOK, "system error, get claims failed")
+		return
+	}
+
 	var req EditReq
 	if err := ctx.Bind(&req); err != nil {
 		return
@@ -225,7 +233,7 @@ func (u *UserHandler) Edit(ctx *gin.Context) {
 	}
 
 	err = u.svc.EditProfile(ctx, domain.User{
-		Email:    req.Email,
+		Id:       claims.Uid,
 		Nickname: req.Nickname,
 		Birth:    req.Birth,
 		Bio:      req.Bio,

@@ -6,5 +6,6 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="webook-fe" />
+    <orderEntry type="module" module-name="scripts" />
   </component>
 </module>

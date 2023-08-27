@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"github.com/skcheng003/webook/internal/domain"
+	"github.com/skcheng003/webook/internal/repository/cache"
 	"github.com/skcheng003/webook/internal/repository/dao"
 )
 
@@ -10,12 +11,14 @@ var ErrUserDuplicateEmail = dao.ErrUserDuplicateEmail
 var ErrUserNoFound = dao.ErrUserNoFound
 
 type UserRepository struct {
-	dao *dao.UserDAO
+	dao   *dao.UserDAO
+	cache *cache.UserCache
 }
 
-func NewUserRepository(dao *dao.UserDAO) *UserRepository {
+func NewUserRepository(dao *dao.UserDAO, cache *cache.UserCache) *UserRepository {
 	return &UserRepository{
-		dao: dao,
+		dao:   dao,
+		cache: cache,
 	}
 }
 
@@ -44,7 +47,7 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (domain.
 }
 
 func (r *UserRepository) FindByUid(ctx context.Context, uid int64) (domain.User, error) {
-	u, err := r.dao.FindByUid(ctx, uid)
+	u, err := r.cache.Get(ctx, uid)
 	if err != nil {
 		return domain.User{}, err
 	}
@@ -60,15 +63,16 @@ func (r *UserRepository) FindByUid(ctx context.Context, uid int64) (domain.User,
 }
 
 func (r *UserRepository) EditProfile(ctx context.Context, user domain.User) error {
-	_, err := r.dao.FindByEmail(ctx, user.Email)
+	_, err := r.dao.FindByUid(ctx, user.Id)
 	if err != nil {
 		return err
 	}
 
-	return r.dao.EditProfile(ctx, dao.User{
-		Email:    user.Email,
+	err = r.dao.EditProfile(ctx, dao.User{
+		Id:       user.Id,
 		Nickname: user.Nickname,
 		Birth:    user.Birth,
 		Bio:      user.Bio,
 	})
+	return err
 }
