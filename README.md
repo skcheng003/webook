@@ -12,6 +12,22 @@ A lot of new features on the way...
 
 ---
 
+#### JWT
+
+- 组合 jwt.RegisteredClaims 来实现 Claims 接口
+- 适合在分布式环节中使用
+- 不依赖第三方存储
+- 性能较好，没有访问瓶颈
+- 安全性比较依赖加密算法
+- token 会传到前端，不要放置敏感信息
+- 优雅退出登陆，使 token 失效方法？
+  1. 布尔过滤器
+  2. redis 存一个黑名单
+- JWT 和 session 混合使用机制：敏感数据存在 session 中，使用 JWT 中的 userId 组成访问 session（使用redis存储）的 key 来进行访问
+- ExpiresAt 设置过期时间
+
+---
+
 #### lecture 8
 
 - 系统保护：限流
