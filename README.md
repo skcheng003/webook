@@ -1,14 +1,4 @@
-# webook
-
-A simple web application back-end writing in Go. Using MySQL as the database.
-
-Now supports:
-+ Sign up new user.
-+ Log in existing user.
-+ Edit user's profile.
-+ Query user's profile.
-
-A lot of new features on the way...
+# webook-Go
 
 ---
 
@@ -25,7 +15,8 @@ A lot of new features on the way...
   2. redis 存一个黑名单
 - JWT 和 session 混合使用机制：敏感数据存在 session 中，使用 JWT 中的 userId 组成访问 session（使用redis存储）的 key 来进行访问
 - ExpiresAt 设置过期时间
-
+- JWT 过期后，刷新时需要重新生成 token 来进行续约
+- 长短 token？
 ---
 
 #### lecture 8
@@ -37,12 +28,4 @@ A lot of new features on the way...
 - 增强登陆安全：
   1. 登录的额外信息（在JWT中加入浏览器的User-Agent头部，在中间件中进行校验）
   2. IP归属地（不能使用IP，尤其是移动网络）
-
----
-
-#### week3 homework
-
-![](/Users/cheng/go/src/webook/image/kubectl command image.png)
-
-
 
