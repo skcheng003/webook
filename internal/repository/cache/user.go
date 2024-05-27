@@ -18,7 +18,7 @@ type UserCache struct {
 	expiration time.Duration
 }
 
-// NewUserCache
+// NewUserCache Dependency injection
 // If A uses B, B should be an interface
 // If A uses B, B should be a property of A
 // If A uses B, A should not initialize B, B should be initialized outside A
@@ -48,7 +48,8 @@ func (cache *UserCache) Set(ctx context.Context, u domain.User) error {
 		return err
 	}
 	key := cache.key(u.Id)
-	return cache.client.Set(ctx, key, val, cache.expiration).Err()
+	err = cache.client.Set(ctx, key, val, cache.expiration).Err()
+	return err
 }
 
 // key generates key for user info

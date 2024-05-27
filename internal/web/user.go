@@ -181,6 +181,7 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 		UserAgent: ctx.Request.UserAgent(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
+
 	tokenStr, err := token.SignedString([]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"))
 	if err != nil {
 		ctx.String(http.StatusInternalServerError, "system error, generate token failed")

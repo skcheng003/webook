@@ -24,7 +24,6 @@ func NewUserRepository(dao *dao.UserDAO, cache *cache.UserCache) *UserRepository
 
 func (r *UserRepository) CreateUser(ctx context.Context, u domain.User) error {
 	return r.dao.Insert(ctx, dao.User{
-		Id:       u.Id,
 		Email:    u.Email,
 		Password: u.Password,
 	})
@@ -32,7 +31,7 @@ func (r *UserRepository) CreateUser(ctx context.Context, u domain.User) error {
 
 func (r *UserRepository) FindByEmail(ctx context.Context, email string) (domain.User, error) {
 	u, err := r.dao.FindByEmail(ctx, email)
-	if err != nil {
+	if err == nil {
 		return domain.User{}, err
 	}
 
@@ -48,18 +47,33 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (domain.
 
 func (r *UserRepository) FindByUid(ctx context.Context, uid int64) (domain.User, error) {
 	u, err := r.cache.Get(ctx, uid)
+	if err == nil {
+		// cache hit, 直接返回
+		return u, err
+	}
+	// cache miss, 从数据库中读取
+	// 在 orm 层用中间件对数据库访问进行限流，防止数据库被打爆
+	// TODO: add cache miss log
+	ue, err := r.dao.FindByUid(ctx, uid)
 	if err != nil {
 		return domain.User{}, err
 	}
-
-	return domain.User{
-		Id:       u.Id,
-		Email:    u.Email,
-		Password: u.Password,
-		Nickname: u.Nickname,
-		Birth:    u.Birth,
-		Bio:      u.Bio,
-	}, err
+	u = domain.User{
+		Id:       ue.Id,
+		Email:    ue.Email,
+		Password: ue.Password,
+		Nickname: ue.Nickname,
+		Birth:    ue.Birth,
+		Bio:      ue.Bio,
+	}
+	go func() {
+		// 异步写入缓存
+		err = r.cache.Set(ctx, u)
+		if err != nil {
+			// TODO: add some log, set cache failed
+		}
+	}()
+	return u, err
 }
 
 func (r *UserRepository) EditProfile(ctx context.Context, user domain.User) error {

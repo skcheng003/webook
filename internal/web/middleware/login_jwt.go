@@ -36,20 +36,21 @@ func (l *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc {
 		}
 
 		tokenHeader := ctx.GetHeader("Authorization")
+		// token 为空，没登陆
 		if tokenHeader == "" {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
-		segs := strings.Split(tokenHeader, " ")
-		if len(segs) != 2 {
+		strs := strings.Split(tokenHeader, " ")
+		if len(strs) != 2 {
 			// 没登录，或者有人瞎搞
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 
-		tokenStr := segs[1]
+		tokenStr := strs[1]
 		claims := &web.UserClaims{}
-		// ParseWithClaims 里面一定要传指针。
+		// ParseWithClaims 里面一定要传指针
 		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
 			return []byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"), nil
 		})

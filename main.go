@@ -6,13 +6,16 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/skcheng003/webook/config"
 	"github.com/skcheng003/webook/internal/repository"
+	"github.com/skcheng003/webook/internal/repository/cache"
 	"github.com/skcheng003/webook/internal/repository/dao"
 	"github.com/skcheng003/webook/internal/service"
 	"github.com/skcheng003/webook/internal/web"
 	"github.com/skcheng003/webook/internal/web/middleware"
+	"github.com/skcheng003/webook/ioc"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"net/http"
+	"time"
 )
 
 func initDB() *gorm.DB {
@@ -30,7 +33,8 @@ func initDB() *gorm.DB {
 
 func initUser(db *gorm.DB) *web.UserHandler {
 	ud := dao.NewUserDAO(db)
-	repo := repository.NewUserRepository(ud)
+	redis := cache.NewUserCache(ioc.InitRedis(), time.Minute*15)
+	repo := repository.NewUserRepository(ud, redis)
 	svc := service.NewUserService(repo)
 	u := web.NewUserHandler(svc)
 	return u
