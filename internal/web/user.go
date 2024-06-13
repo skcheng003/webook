@@ -170,9 +170,7 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 		return
 	}
 
-	// 用 JWT 设置登陆态
-	// 生成一个 JWT token
-
+	// 用 JWT 设置登陆态, 生成一个 JWT token
 	claims := UserClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
@@ -281,7 +279,6 @@ func (u *UserHandler) Profile(ctx *gin.Context) {
 func (u *UserHandler) ProfileJWT(ctx *gin.Context) {
 	c, _ := ctx.Get("claims")
 	claims, ok := c.(*UserClaims)
-
 	if !ok {
 		ctx.String(http.StatusOK, "system error, get claims failed")
 		return

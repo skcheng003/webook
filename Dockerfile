@@ -1,6 +1,6 @@
 # 基础镜像
 FROM ubuntu:20.04
-COPY webook /app/webook
+COPY webook /bin/webook
 # 自定义工作目录
-WORKDIR /app
-ENTRYPOINT ["/app/webook"]
+WORKDIR /bin
+ENTRYPOINT ["/bin/webook"]

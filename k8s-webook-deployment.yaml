@@ -17,7 +17,7 @@ spec:
       # hostNetwork: false
       containers:
         - name: webook
-          image: acorngrow/webook:v0.0.1
+          image: senkie/webook:v0.0.1
           ports:
             - containerPort: 8081
       

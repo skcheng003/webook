@@ -59,6 +59,7 @@ func (l *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
+		// token.Valid 会验证过期时间
 		if token == nil || !token.Valid || claims.Uid == 0 {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 		}
@@ -68,16 +69,18 @@ func (l *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc {
 		}
 
 		now := time.Now()
-		// 每十秒钟刷新一次
+		// 过期时间小于一分钟时，刷新 jwt
 		if claims.ExpiresAt.Sub(now) < time.Minute {
 			claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(time.Minute * 30))
+			// 生成一个新的 token
 			tokenStr, err = token.SignedString([]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"))
 			if err != nil {
+				// TODO: need log module
 				log.Println("regenerate jwt token failed: ", err)
 			}
 			ctx.Header("x-jwt-token", tokenStr)
 		}
-
+		// 把解析后的 claim 放在 context 里面，方便其他路由函数获取
 		ctx.Set("claims", claims)
 	}
 }
