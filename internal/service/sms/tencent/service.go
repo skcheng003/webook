@@ -3,7 +3,6 @@ package tencent
 import (
 	"context"
 	"fmt"
-	"github.com/ecodeclub/ekit"
 	"github.com/ecodeclub/ekit/slice"
 	sms "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/sms/v20210111"
 )
@@ -18,8 +17,8 @@ func NewService(c *sms.Client, appId string,
 	signName string) *Service {
 	return &Service{
 		client:   c,
-		appId:    ekit.ToPtr[string](appId),
-		signName: ekit.ToPtr[string](signName),
+		appId:    &appId,
+		signName: &signName,
 	}
 }
 

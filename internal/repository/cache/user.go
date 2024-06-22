@@ -20,7 +20,7 @@ type UserCache struct {
 
 // NewUserCache Dependency injection
 // If A uses B, B should be an interface
-// If A uses B, B should be a property of A
+// If A uses B, B should be a property of A 吗
 // If A uses B, A should not initialize B, B should be initialized outside A
 func NewUserCache(client redis.Cmdable, expiration time.Duration) *UserCache {
 	return &UserCache{
