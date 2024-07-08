@@ -25,12 +25,12 @@ type CodeCache interface {
 
 // RedisCodeCache 基于 Redis 实现
 type RedisCodeCache struct {
-	redis redis.Cmdable
+	cache redis.Cmdable
 }
 
 func NewRedisCodeCache(cmd redis.Cmdable) *RedisCodeCache {
 	return &RedisCodeCache{
-		redis: cmd,
+		cache: cmd,
 	}
 }
 
@@ -40,7 +40,7 @@ func NewRedisCodeCache(cmd redis.Cmdable) *RedisCodeCache {
 // 如果已经有一个验证码，但是发出去不到一分钟，不允许重发
 // 验证码有效期 10 分钟
 func (c *RedisCodeCache) Set(ctx context.Context, biz string, phone string, code string) error {
-	res, err := c.redis.Eval(ctx, luaSetCode, []string{c.key(biz, phone)}, code).Int()
+	res, err := c.cache.Eval(ctx, luaSetCode, []string{c.key(biz, phone)}, code).Int()
 	if err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func (c *RedisCodeCache) Set(ctx context.Context, biz string, phone string, code
 // 如果验证码是一致的，那么删除
 // 如果验证码不一致，那么保留的
 func (c *RedisCodeCache) Verify(ctx context.Context, biz string, phone string, inputCode string) (bool, error) {
-	res, err := c.redis.Eval(ctx, luaVerifyCode, []string{c.key(biz, phone)}, inputCode).Int()
+	res, err := c.cache.Eval(ctx, luaVerifyCode, []string{c.key(biz, phone)}, inputCode).Int()
 	if err != nil {
 		return false, nil
 	}

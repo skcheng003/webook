@@ -9,12 +9,12 @@ import (
 	"github.com/skcheng003/webook/internal/repository/cache"
 	"github.com/skcheng003/webook/internal/repository/dao"
 	"github.com/skcheng003/webook/internal/service"
+	"github.com/skcheng003/webook/internal/service/sms/memory"
 	"github.com/skcheng003/webook/internal/web"
 	"github.com/skcheng003/webook/internal/web/middleware"
 	"github.com/skcheng003/webook/ioc"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"net/http"
 	"time"
 )
 
@@ -36,16 +36,16 @@ func initUser(db *gorm.DB) *web.UserHandler {
 	redis := cache.NewUserCache(ioc.InitRedis(), time.Minute*15)
 	repo := repository.NewUserRepository(ud, redis)
 	svc := service.NewUserService(repo)
-	u := web.NewUserHandler(svc)
+	codeCache := cache.NewRedisCodeCache(ioc.InitRedis())
+	codeRepo := repository.NewCachedCodeRepository(codeCache)
+	smsSvc := memory.NewService()
+	codeSvc := service.NewSMSCodeService(smsSvc, codeRepo)
+	u := web.NewUserHandler(svc, codeSvc)
 	return u
 }
 
 func initWebServer() *gin.Engine {
 	server := gin.Default()
-
-	server.Use(func(ctx *gin.Context) {
-		println("This is a middleware")
-	})
 
 	/*
 		redisClient := redis.NewClient(&redis.Options{
@@ -66,14 +66,15 @@ func initWebServer() *gin.Engine {
 	server.Use(sessions.Sessions("ssid", store))
 
 	server.Use(middleware.NewLoginJWTMiddlewareBuilder().
-		IgnorePath("/users/signup", "/users/login", "/hello").Build())
+		IgnorePath("/users/login_sms/code/send").
+		IgnorePath("/users/login_sms").
+		IgnorePath("/users/signup", "/users/login").Build())
 
 	return server
 }
 
 func main() {
 	// initialize db
-
 	db := initDB()
 	// initialize user
 	u := initUser(db)
@@ -83,15 +84,9 @@ func main() {
 	u.RegisterRoutes(server)
 	// start server
 
-	server.GET("/hello", func(ctx *gin.Context) {
-		ctx.String(http.StatusOK, "hello from the other side")
-	})
-
 	server.Run("localhost:8081")
 
 	/*
-
-
 		server2 := gin.Default()
 		server2.GET("/hello", func(ctx *gin.Context) {
 			ctx.String(http.StatusOK, "hello k8s\n")
