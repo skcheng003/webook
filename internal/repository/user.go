@@ -2,9 +2,11 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"github.com/skcheng003/webook/internal/domain"
 	"github.com/skcheng003/webook/internal/repository/cache"
 	"github.com/skcheng003/webook/internal/repository/dao"
+	"time"
 )
 
 var ErrUserDuplicateEmail = dao.ErrUserDuplicateEmail
@@ -23,10 +25,7 @@ func NewUserRepository(dao *dao.UserDAO, cache *cache.UserCache) *UserRepository
 }
 
 func (r *UserRepository) CreateUser(ctx context.Context, u domain.User) error {
-	return r.dao.Insert(ctx, dao.User{
-		Email:    u.Email,
-		Password: u.Password,
-	})
+	return r.dao.Insert(ctx, r.domainToEntity(u))
 }
 
 func (r *UserRepository) FindByEmail(ctx context.Context, email string) (domain.User, error) {
@@ -34,15 +33,15 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (domain.
 	if err == nil {
 		return domain.User{}, err
 	}
+	return r.entityToDomain(u), err
+}
 
-	return domain.User{
-		Id:       u.Id,
-		Email:    u.Email,
-		Password: u.Password,
-		Nickname: u.Nickname,
-		Birth:    u.Birth,
-		Bio:      u.Bio,
-	}, err
+func (r *UserRepository) FindByPhone(ctx context.Context, phone string) (domain.User, error) {
+	u, err := r.dao.FindByPhone(ctx, phone)
+	if err == nil {
+		return domain.User{}, err
+	}
+	return r.entityToDomain(u), err
 }
 
 func (r *UserRepository) FindByUid(ctx context.Context, uid int64) (domain.User, error) {
@@ -58,14 +57,7 @@ func (r *UserRepository) FindByUid(ctx context.Context, uid int64) (domain.User,
 	if err != nil {
 		return domain.User{}, err
 	}
-	u = domain.User{
-		Id:       ue.Id,
-		Email:    ue.Email,
-		Password: ue.Password,
-		Nickname: ue.Nickname,
-		Birth:    ue.Birth,
-		Bio:      ue.Bio,
-	}
+	u = r.entityToDomain(ue)
 	go func() {
 		// 异步写入缓存
 		err = r.cache.Set(ctx, u)
@@ -89,4 +81,30 @@ func (r *UserRepository) EditProfile(ctx context.Context, user domain.User) erro
 		Bio:      user.Bio,
 	})
 	return err
+}
+
+func (r *UserRepository) domainToEntity(user domain.User) dao.User {
+	return dao.User{
+		Id: user.Id,
+		Email: sql.NullString{
+			String: user.Email,
+			Valid:  user.Email == "",
+		},
+		Phone: sql.NullString{
+			String: user.Phone,
+			Valid:  user.Phone == "",
+		},
+		Password: user.Password,
+		Ctime:    user.Ctime.UnixMilli(),
+	}
+}
+
+func (r *UserRepository) entityToDomain(user dao.User) domain.User {
+	return domain.User{
+		Id:       user.Id,
+		Email:    user.Email.String,
+		Phone:    user.Phone.String,
+		Password: user.Password,
+		Ctime:    time.UnixMilli(user.Ctime),
+	}
 }
