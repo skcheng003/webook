@@ -21,10 +21,10 @@ type CodeService interface {
 
 type SMSCodeService struct {
 	sms  sms.Service
-	repo *repository.CachedCodeRepository
+	repo repository.CodeRepository
 }
 
-func NewSMSCodeService(svc sms.Service, repo *repository.CachedCodeRepository) *SMSCodeService {
+func NewSMSCodeService(svc sms.Service, repo repository.CodeRepository) CodeService {
 	return &SMSCodeService{
 		sms:  svc,
 		repo: repo,
@@ -57,5 +57,5 @@ func (svc *SMSCodeService) Verify(ctx context.Context, biz string, phone string,
 
 func (svc *SMSCodeService) generate() string {
 	num := rand.Intn(999999)
-	return fmt.Sprintf("%6d", num)
+	return fmt.Sprintf("%06d", num)
 }

@@ -10,58 +10,63 @@ import (
 )
 
 var (
-	ErrUserDuplicateEmail = errors.New("email address conflict")
-	ErrUserNoFound        = gorm.ErrRecordNotFound
+	ErrUserDuplicate = errors.New("email address conflict")
+	ErrUserNoFound   = gorm.ErrRecordNotFound
 )
 
-const (
-	uniqueConflictsErrNo uint16 = 1062
-)
+type UserDao interface {
+	FindByEmail(ctx context.Context, email string) (User, error)
+	FindByPhone(ctx context.Context, phone string) (User, error)
+	FindByUid(ctx context.Context, uid int64) (User, error)
+	Insert(ctx context.Context, u User) error
+	EditProfile(ctx context.Context, u User) error
+}
 
-type UserDAO struct {
+type GORMUserDAO struct {
 	db *gorm.DB
 }
 
-func NewUserDAO(db *gorm.DB) *UserDAO {
-	return &UserDAO{
+func NewGORMUserDAO(db *gorm.DB) UserDao {
+	return &GORMUserDAO{
 		db: db,
 	}
 }
 
-func (dao *UserDAO) FindByEmail(ctx context.Context, email string) (User, error) {
+func (dao *GORMUserDAO) FindByEmail(ctx context.Context, email string) (User, error) {
 	var u User
 	err := dao.db.WithContext(ctx).Where("email = ?", email).First(&u).Error
 	return u, err
 }
 
-func (dao *UserDAO) FindByPhone(ctx context.Context, phone string) (User, error) {
+func (dao *GORMUserDAO) FindByPhone(ctx context.Context, phone string) (User, error) {
 	var u User
 	err := dao.db.WithContext(ctx).Where("phone = ?", phone).First(&u).Error
 	return u, err
 }
 
-func (dao *UserDAO) FindByUid(ctx context.Context, uid int64) (User, error) {
+func (dao *GORMUserDAO) FindByUid(ctx context.Context, uid int64) (User, error) {
 	var u User
 	err := dao.db.WithContext(ctx).Where("Id = ?", uid).First(&u).Error
 	return u, err
 }
 
-func (dao *UserDAO) Insert(ctx context.Context, u User) error {
+func (dao *GORMUserDAO) Insert(ctx context.Context, u User) error {
 	now := time.Now().UnixMilli() // 存毫秒数
 	u.Ctime = now
 	u.Utime = now
 	err := dao.db.WithContext(ctx).Create(&u).Error
 	var mysqlErr *mysql.MySQLError
 	if errors.As(err, &mysqlErr) {
+		const uniqueConflictsErrNo uint16 = 1062
 		if mysqlErr.Number == uniqueConflictsErrNo {
 			// 邮箱冲突
-			return ErrUserDuplicateEmail
+			return ErrUserDuplicate
 		}
 	}
 	return err
 }
 
-func (dao *UserDAO) EditProfile(ctx context.Context, u User) error {
+func (dao *GORMUserDAO) EditProfile(ctx context.Context, u User) error {
 	err := dao.db.WithContext(ctx).Where("Id = ?", u.Id).
 		Updates(User{Nickname: u.Nickname, Birth: u.Birth, Bio: u.Bio}).Error
 	return err

@@ -23,8 +23,8 @@ var ErrInvalidUserOrPassword = service.ErrInvalidUserOrPassword
 
 // UserHandler is the handler of user
 type UserHandler struct {
-	svc              *service.UserService
-	codeSvc          *service.SMSCodeService
+	svc              service.UserService
+	codeSvc          service.CodeService
 	emailRegexExp    *regexp.Regexp
 	passwordRegexExp *regexp.Regexp
 	birthRegexExp    *regexp.Regexp
@@ -37,7 +37,7 @@ type UserClaims struct {
 	UserAgent string
 }
 
-func NewUserHandler(svc *service.UserService, codeSvc *service.SMSCodeService) *UserHandler {
+func NewUserHandler(svc service.UserService, codeSvc service.CodeService) *UserHandler {
 	const (
 		emailRegexPattern    = "^\\w+([-+.]\\w+)*@\\w+([-.]\\w+)*\\.\\w+([-.]\\w+)*$"
 		passwordRegexPattern = `^(?=.*[A-Za-z])(?=.*\d)(?=.*[$@$!%*#?&])[A-Za-z\d$@$!%*#?&]{8,72}$`
@@ -60,7 +60,7 @@ func (u *UserHandler) RegisterRoutes(server *gin.Engine) {
 	ug.POST("/edit", u.Edit)
 	ug.GET("/profile", u.ProfileJWT)
 	ug.POST("/login_sms/code/send", u.SendLoginSMSCode)
-	ug.POST("/login_sms/code/verify", u.VerifyLoginSMSCode)
+	ug.POST("/login_sms", u.VerifyLoginSMSCode)
 }
 
 func (u *UserHandler) SignUp(ctx *gin.Context) {
@@ -377,11 +377,26 @@ func (u *UserHandler) VerifyLoginSMSCode(ctx *gin.Context) {
 		})
 	}
 
-	user, _ := u.svc.FindOrCreate(ctx, req.Phone)
+	user, err := u.svc.FindOrCreate(ctx, req.Phone)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		return
+	}
 
-	u.setJWTToken(ctx, user.Id)
+	err = u.setJWTToken(ctx, user.Id)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+		return
+	}
 
 	ctx.JSON(http.StatusOK, Result{
-		Msg: "校验验证码通过",
+		Code: 4,
+		Msg:  "校验验证码通过",
 	})
 }

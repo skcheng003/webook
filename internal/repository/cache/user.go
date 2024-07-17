@@ -12,25 +12,30 @@ import (
 // ErrKeyNotExist is the error when key not exist
 var ErrKeyNotExist = redis.Nil
 
-// UserCache Programing with interface
-type UserCache struct {
+type UserCache interface {
+	Get(ctx context.Context, id int64) (domain.User, error)
+	Set(ctx context.Context, u domain.User) error
+}
+
+// RedisUserCache Programing with interface
+type RedisUserCache struct {
 	client     redis.Cmdable
 	expiration time.Duration
 }
 
-// NewUserCache Dependency injection
+// NewRedisUserCache Dependency injection
 // If A uses B, B should be an interface
 // If A uses B, B should be a property of A 吗
 // If A uses B, A should not initialize B, B should be initialized outside A
-func NewUserCache(client redis.Cmdable, expiration time.Duration) *UserCache {
-	return &UserCache{
+func NewRedisUserCache(client redis.Cmdable) UserCache {
+	return &RedisUserCache{
 		client:     client,
-		expiration: expiration,
+		expiration: time.Minute * 15,
 	}
 }
 
 // Get gets user info from cache
-func (cache *UserCache) Get(ctx context.Context, id int64) (domain.User, error) {
+func (cache *RedisUserCache) Get(ctx context.Context, id int64) (domain.User, error) {
 	key := cache.key(id)
 	val, err := cache.client.Get(ctx, key).Bytes()
 	if err == ErrKeyNotExist {
@@ -42,7 +47,7 @@ func (cache *UserCache) Get(ctx context.Context, id int64) (domain.User, error) 
 }
 
 // Set sets user info to cache
-func (cache *UserCache) Set(ctx context.Context, u domain.User) error {
+func (cache *RedisUserCache) Set(ctx context.Context, u domain.User) error {
 	val, err := json.Marshal(u)
 	if err != nil {
 		return err
@@ -53,6 +58,6 @@ func (cache *UserCache) Set(ctx context.Context, u domain.User) error {
 }
 
 // key generates key for user info
-func (cache *UserCache) key(id int64) string {
+func (cache *RedisUserCache) key(id int64) string {
 	return fmt.Sprintf("user:info:%d", id)
 }
