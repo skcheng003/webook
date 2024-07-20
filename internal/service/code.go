@@ -14,6 +14,8 @@ var ErrCodeSendTooMany = repository.ErrCodeSendTooMany
 // const codeTplId = "1877556"
 const codeTplId = "1110"
 
+var _ CodeService = (*SMSCodeService)(nil)
+
 type CodeService interface {
 	Send(ctx context.Context, biz string, phone string) error
 	Verify(ctx context.Context, biz string, phone string, inputCode string) (bool, error)

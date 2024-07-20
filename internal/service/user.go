@@ -12,6 +12,8 @@ var ErrUserDuplicateEmail = repository.ErrUserDuplicate
 var ErrInvalidUserOrPassword = errors.New("invalid user or password")
 var ErrUserNoFound = repository.ErrUserNoFound
 
+var _ UserService = (*userService)(nil)
+
 type UserService interface {
 	SignUp(ctx context.Context, u domain.User) error
 	Login(ctx context.Context, email string, password string) (domain.User, error)

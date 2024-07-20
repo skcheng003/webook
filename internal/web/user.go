@@ -21,7 +21,7 @@ var ErrUserDuplicateEmail = service.ErrUserDuplicateEmail
 var ErrUserNoFound = service.ErrUserNoFound
 var ErrInvalidUserOrPassword = service.ErrInvalidUserOrPassword
 
-// UserHandler is the handler of user
+// UserHandler 定义和用户有关的路由
 type UserHandler struct {
 	svc              service.UserService
 	codeSvc          service.CodeService
@@ -37,7 +37,7 @@ type UserClaims struct {
 	UserAgent string
 }
 
-func NewUserHandler(svc service.UserService, codeSvc service.CodeService) *UserHandler {
+func NewUserHandler(userSvc service.UserService, codeSvc service.CodeService) *UserHandler {
 	const (
 		emailRegexPattern    = "^\\w+([-+.]\\w+)*@\\w+([-.]\\w+)*\\.\\w+([-.]\\w+)*$"
 		passwordRegexPattern = `^(?=.*[A-Za-z])(?=.*\d)(?=.*[$@$!%*#?&])[A-Za-z\d$@$!%*#?&]{8,72}$`
@@ -45,7 +45,7 @@ func NewUserHandler(svc service.UserService, codeSvc service.CodeService) *UserH
 	)
 
 	return &UserHandler{
-		svc:              svc,
+		svc:              userSvc,
 		codeSvc:          codeSvc,
 		emailRegexExp:    regexp.MustCompile(emailRegexPattern, regexp.None),
 		passwordRegexExp: regexp.MustCompile(passwordRegexPattern, regexp.None),
@@ -64,57 +64,58 @@ func (u *UserHandler) RegisterRoutes(server *gin.Engine) {
 }
 
 func (u *UserHandler) SignUp(ctx *gin.Context) {
-
 	type SignUpReq struct {
-		Email           string `json:"email"`
-		Password        string `json:"password"`
-		ConfirmPassword string `json:"confirmPassword"`
+		Email           string `json:"email" binding:"required"`
+		Password        string `json:"password" binding:"required"`
+		ConfirmPassword string `json:"confirmPassword" binding:"required"`
 	}
-
 	var req SignUpReq
+	// Bind 根据 Content-Type 解析数据到 req 里面，如果解析错误，返回 400
 	if err := ctx.Bind(&req); err != nil {
 		return
 	}
 
+	// 邮箱校验
 	isEmail, err := u.emailRegexExp.MatchString(req.Email)
-
 	if err != nil {
-		ctx.String(http.StatusOK, "system error")
+		ctx.String(http.StatusOK, "系统错误")
 		return
 	}
-
 	if !isEmail {
-		ctx.String(http.StatusOK, "email address format wrong")
+		ctx.String(http.StatusOK, "邮箱格式错误")
 		return
 	}
 
+	// 密码校验
 	if req.Password != req.ConfirmPassword {
-		ctx.String(http.StatusOK, "different password")
+		ctx.String(http.StatusOK, "两次输入密码不一致")
 		return
 	}
-
 	isPassword, err := u.passwordRegexExp.MatchString(req.Password)
 	if err != nil {
-		ctx.String(http.StatusOK, "system error")
+		ctx.String(http.StatusOK, "系统错误")
 		return
 	}
-
 	if !isPassword {
 		ctx.String(http.StatusOK, "密码必须包含数字、特殊字符，并且长度不能小于8位")
 		return
 	}
 
+	// 调用 service 进行注册
 	err = u.svc.SignUp(ctx, domain.User{
 		Email:    req.Email,
 		Password: req.Password,
 	})
 
 	if errors.Is(err, ErrUserDuplicateEmail) {
-		ctx.String(http.StatusOK, "conflict email address")
+		ctx.String(http.StatusOK, "邮箱地址冲突")
 		return
 	}
-
-	ctx.String(http.StatusOK, "Sign up successful!")
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+	ctx.String(http.StatusOK, "注册成功")
 }
 
 func (u *UserHandler) Login(ctx *gin.Context) {
@@ -122,20 +123,17 @@ func (u *UserHandler) Login(ctx *gin.Context) {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
-
 	var req LoginReq
 	if err := ctx.Bind(&req); err != nil {
 		return
 	}
-
 	user, err := u.svc.Login(ctx, req.Email, req.Password)
 	if errors.Is(err, ErrUserNoFound) || errors.Is(err, ErrInvalidUserOrPassword) {
-		ctx.String(http.StatusOK, "username or password wrong")
+		ctx.String(http.StatusOK, "用户名或密码错误")
 		return
 	}
-
 	if err != nil {
-		ctx.String(http.StatusOK, "system error")
+		ctx.String(http.StatusOK, "系统错误")
 		return
 	}
 	sess := sessions.Default(ctx)
@@ -146,8 +144,8 @@ func (u *UserHandler) Login(ctx *gin.Context) {
 		// HttpOnly: true,
 		MaxAge: 30 * 60,
 	})
-	sess.Save()
-	ctx.String(http.StatusOK, "Log in successful!")
+	_ = sess.Save()
+	ctx.String(http.StatusOK, "登录成功")
 	return
 }
 
@@ -165,10 +163,9 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 
 	user, err := u.svc.Login(ctx, req.Email, req.Password)
 	if errors.Is(err, ErrUserNoFound) || errors.Is(err, ErrInvalidUserOrPassword) {
-		ctx.String(http.StatusOK, "username or password wrong")
+		ctx.String(http.StatusOK, "用户名或密码错误")
 		return
 	}
-
 	if err != nil {
 		ctx.JSON(http.StatusOK, Result{
 			Code: 5,
@@ -176,12 +173,11 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 		})
 		return
 	}
-
 	if err := u.setJWTToken(ctx, user.Id); err != nil {
 		return
 	}
 	ctx.JSON(http.StatusOK, Result{
-		Msg: "登陆成功！",
+		Msg: "登录成功",
 	})
 	return
 }
@@ -302,7 +298,6 @@ func (u *UserHandler) ProfileJWT(ctx *gin.Context) {
 		ctx.String(http.StatusOK, "system error, get claims failed")
 		return
 	}
-
 	user, err := u.svc.FindProfileJWT(ctx, claims.Uid)
 
 	if errors.Is(err, ErrUserNoFound) {
