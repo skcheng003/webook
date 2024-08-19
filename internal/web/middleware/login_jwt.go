@@ -5,9 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/skcheng003/webook/internal/web"
-	"log"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -35,26 +33,11 @@ func (l *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc {
 			}
 		}
 
-		tokenHeader := ctx.GetHeader("Authorization")
-		// token 为空，没登陆
-		if tokenHeader == "" {
-			ctx.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-		strs := strings.Split(tokenHeader, " ")
-		if len(strs) != 2 {
-			// 没登录，或者有人瞎搞
-			ctx.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-
-		tokenStr := strs[1]
+		signedToken := web.ExtractToken(ctx)
 		claims := &web.UserClaims{}
-		// ParseWithClaims 里面一定要传指针
-		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+		token, err := jwt.ParseWithClaims(signedToken, claims, func(token *jwt.Token) (interface{}, error) {
 			return []byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"), nil
 		})
-
 		if err != nil {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
@@ -63,22 +46,9 @@ func (l *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc {
 		if token == nil || !token.Valid || claims.Uid == 0 {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 		}
-
+		//  验证发送客户端
 		if claims.UserAgent != ctx.Request.UserAgent() {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
-		}
-
-		now := time.Now()
-		// 过期时间小于一分钟时，刷新 jwt
-		if claims.ExpiresAt.Sub(now) < time.Minute {
-			claims.ExpiresAt = jwt.NewNumericDate(time.Now().Add(time.Minute * 30))
-			// 生成一个新的 token
-			tokenStr, err = token.SignedString([]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"))
-			if err != nil {
-				// TODO: need log module
-				log.Println("regenerate jwt token failed: ", err)
-			}
-			ctx.Header("x-jwt-token", tokenStr)
 		}
 		// 把解析后的 claim 放在 context 里面，方便其他路由函数获取
 		ctx.Set("claims", claims)

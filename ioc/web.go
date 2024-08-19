@@ -7,8 +7,6 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/skcheng003/webook/internal/web"
 	"github.com/skcheng003/webook/internal/web/middleware"
-	ratelimit "github.com/skcheng003/webook/pkg/ginx/middlewares/ratelimits"
-	"time"
 )
 
 func InitGinServer(middlewares []gin.HandlerFunc, handler *web.UserHandler) *gin.Engine {
@@ -26,8 +24,9 @@ func InitMiddleWares(redisClient redis.Cmdable) []gin.HandlerFunc {
 		middleware.NewLoginJWTMiddlewareBuilder().
 			IgnorePath("/users/login_sms/code/send").
 			IgnorePath("/users/login_sms").
-			IgnorePath("/users/signup", "/users/login").Build(),
+			IgnorePath("/users/signup", "/users/login").
+			IgnorePath("/users/refresh_token").Build(),
 		sessions.Sessions("ssid", store),
-		ratelimit.NewBuilder(redisClient, time.Second, 100).Build(),
+		// ratelimit.NewBuilder().Build(),
 	}
 }

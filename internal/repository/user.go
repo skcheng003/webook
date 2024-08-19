@@ -38,7 +38,7 @@ func (r *userRepository) CreateUser(ctx context.Context, u domain.User) error {
 
 func (r *userRepository) FindByEmail(ctx context.Context, email string) (domain.User, error) {
 	u, err := r.dao.FindByEmail(ctx, email)
-	if err == nil {
+	if err != nil {
 		return domain.User{}, err
 	}
 	return r.entityToDomain(u), err

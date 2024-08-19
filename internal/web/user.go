@@ -9,7 +9,6 @@ import (
 	"github.com/skcheng003/webook/internal/domain"
 	"github.com/skcheng003/webook/internal/service"
 	"net/http"
-	"time"
 )
 
 const (
@@ -28,13 +27,7 @@ type UserHandler struct {
 	emailRegexExp    *regexp.Regexp
 	passwordRegexExp *regexp.Regexp
 	birthRegexExp    *regexp.Regexp
-}
-
-// UserClaims is the custom claims struct that will be encoded to a JWT.
-type UserClaims struct {
-	jwt.RegisteredClaims
-	Uid       int64
-	UserAgent string
+	jwtHandler
 }
 
 func NewUserHandler(userSvc service.UserService, codeSvc service.CodeService) *UserHandler {
@@ -50,6 +43,7 @@ func NewUserHandler(userSvc service.UserService, codeSvc service.CodeService) *U
 		emailRegexExp:    regexp.MustCompile(emailRegexPattern, regexp.None),
 		passwordRegexExp: regexp.MustCompile(passwordRegexPattern, regexp.None),
 		birthRegexExp:    regexp.MustCompile(birthdayRegexPattern, regexp.None),
+		jwtHandler:       newJwtHandler(),
 	}
 }
 
@@ -61,6 +55,7 @@ func (u *UserHandler) RegisterRoutes(server *gin.Engine) {
 	ug.GET("/profile", u.ProfileJWT)
 	ug.POST("/login_sms/code/send", u.SendLoginSMSCode)
 	ug.POST("/login_sms", u.VerifyLoginSMSCode)
+	ug.POST("/refresh_token", u.RefreshToken)
 }
 
 func (u *UserHandler) SignUp(ctx *gin.Context) {
@@ -173,7 +168,11 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 		})
 		return
 	}
-	if err := u.setJWTToken(ctx, user.Id); err != nil {
+	err = u.setLoginToken(ctx, user.Id)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, Result{
+			Msg: "设置登录token失败",
+		})
 		return
 	}
 	ctx.JSON(http.StatusOK, Result{
@@ -182,43 +181,24 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 	return
 }
 
-func (u *UserHandler) setJWTToken(ctx *gin.Context, uid int64) error {
-	// 用 JWT 设置登陆态, 生成一个 JWT token
-	claims := UserClaims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
-		},
-		Uid:       uid,
-		UserAgent: ctx.Request.UserAgent(),
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
-
-	tokenStr, err := token.SignedString([]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"))
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, Result{
-			Code: 5,
-			Msg:  "系统错误，生成token失败",
-		})
-		return err
-	}
-	ctx.Header("x-jwt-token", tokenStr)
-	return nil
-}
-
 func (u *UserHandler) Edit(ctx *gin.Context) {
 	type EditReq struct {
 		Nickname string `json:"nickname"`
 		Birth    string `json:"birth"`
 		Bio      string `json:"bio"`
 	}
-
-	c, _ := ctx.Get("claims")
-	claims, ok := c.(*UserClaims)
-	if !ok {
-		ctx.String(http.StatusOK, "system error, get claims failed")
+	signedToken := ExtractToken(ctx)
+	var claims UserClaims
+	token, err := jwt.ParseWithClaims(signedToken, &claims, func(token *jwt.Token) (interface{}, error) {
+		return u.accessTokenKey, nil
+	})
+	if err != nil || token == nil || !token.Valid {
+		ctx.JSON(http.StatusUnauthorized, Result{
+			Code: 5,
+			Msg:  "验证token失败",
+		})
 		return
 	}
-
 	var req EditReq
 	if err := ctx.Bind(&req); err != nil {
 		return
@@ -292,10 +272,16 @@ func (u *UserHandler) Profile(ctx *gin.Context) {
 }
 
 func (u *UserHandler) ProfileJWT(ctx *gin.Context) {
-	c, _ := ctx.Get("claims")
-	claims, ok := c.(*UserClaims)
-	if !ok {
-		ctx.String(http.StatusOK, "system error, get claims failed")
+	signedToken := ExtractToken(ctx)
+	var claims UserClaims
+	token, err := jwt.ParseWithClaims(signedToken, &claims, func(token *jwt.Token) (interface{}, error) {
+		return u.accessTokenKey, nil
+	})
+	if err != nil || token == nil || !token.Valid {
+		ctx.JSON(http.StatusUnauthorized, Result{
+			Code: 5,
+			Msg:  "验证token失败",
+		})
 		return
 	}
 	user, err := u.svc.FindProfileJWT(ctx, claims.Uid)
@@ -381,7 +367,7 @@ func (u *UserHandler) VerifyLoginSMSCode(ctx *gin.Context) {
 		return
 	}
 
-	err = u.setJWTToken(ctx, user.Id)
+	err = u.setLoginToken(ctx, user.Id)
 	if err != nil {
 		ctx.JSON(http.StatusOK, Result{
 			Code: 5,
@@ -389,9 +375,28 @@ func (u *UserHandler) VerifyLoginSMSCode(ctx *gin.Context) {
 		})
 		return
 	}
-
 	ctx.JSON(http.StatusOK, Result{
 		Code: 4,
 		Msg:  "校验验证码通过",
+	})
+}
+
+func (u *UserHandler) RefreshToken(ctx *gin.Context) {
+	signedToken := ExtractToken(ctx)
+	var rc RefreshClaims
+	token, err := jwt.ParseWithClaims(signedToken, &rc, func(token *jwt.Token) (interface{}, error) {
+		return u.refreshTokenKey, nil
+	})
+	if err != nil || token == nil || !token.Valid {
+		ctx.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
+	// 刷新 AccessToken
+	err = u.setAccessToken(ctx, rc.Uid, rc.Ssid)
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusUnauthorized)
+	}
+	ctx.JSON(http.StatusOK, Result{
+		Msg: "刷新成功",
 	})
 }
