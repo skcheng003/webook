@@ -2,8 +2,10 @@ package middleware
 
 import (
 	"encoding/gob"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/redis/go-redis/v9"
 	"github.com/skcheng003/webook/internal/web"
 	"net/http"
 	"time"
@@ -11,6 +13,7 @@ import (
 
 type LoginJWTMiddlewareBuilder struct {
 	paths []string
+	cmd   redis.Cmdable
 }
 
 func NewLoginJWTMiddlewareBuilder() *LoginJWTMiddlewareBuilder {
@@ -50,7 +53,14 @@ func (l *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc {
 		if claims.UserAgent != ctx.Request.UserAgent() {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 		}
+		// ssid 在 redis 中存在记录，用户已经退出登录
+		val := l.cmd.Exists(ctx, fmt.Sprintf("ssid:%s", claims.Ssid)).Val()
+		if val > 0 {
+			ctx.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
 		// 把解析后的 claim 放在 context 里面，方便其他路由函数获取
-		ctx.Set("claims", claims)
+		ctx.Set("userClaims", claims)
 	}
 }

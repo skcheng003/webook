@@ -40,11 +40,11 @@ func (h jwtHandler) setLoginToken(ctx *gin.Context, uid int64) error {
 	ssid := uuid.New().String()
 	err := h.setAccessToken(ctx, uid, ssid)
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return err
 	}
 	err = h.setRefreshToken(ctx, uid, ssid)
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return err
 	}
 	return nil
 }
