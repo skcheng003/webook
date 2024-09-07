@@ -7,7 +7,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	"github.com/skcheng003/webook/internal/web"
 	"net/http"
 	"strings"
 	"time"
@@ -54,7 +53,7 @@ func (h RedisJWTHandler) SetAccessToken(ctx *gin.Context, uid int64, ssid string
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
 	signedToken, err := token.SignedString(AccessTokenKey)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, web.Result{
+		ctx.JSON(http.StatusInternalServerError, Result{
 			Code: 5,
 			Msg:  "系统错误，生成 access-token 失败",
 		})
@@ -75,7 +74,7 @@ func (h RedisJWTHandler) SetRefreshToken(ctx *gin.Context, uid int64, ssid strin
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)
 	signedToken, err := token.SignedString(RefreshTokenKey)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, web.Result{
+		ctx.JSON(http.StatusInternalServerError, Result{
 			Code: 5,
 			Msg:  "系统错误，生成 refresh-token失败",
 		})
@@ -85,7 +84,8 @@ func (h RedisJWTHandler) SetRefreshToken(ctx *gin.Context, uid int64, ssid strin
 }
 
 func (h RedisJWTHandler) CheckSession(ctx *gin.Context, ssid string) error {
-	logout, err := h.redisCmd.Exists(ctx, h.key(ssid)).Result()
+	logout, err := h.redisCmd.Exists(ctx,
+		fmt.Sprintf("users:Ssid:%s", ssid)).Result()
 	if err != nil {
 		return err
 	}

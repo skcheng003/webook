@@ -2,22 +2,22 @@ package middleware
 
 import (
 	"encoding/gob"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/redis/go-redis/v9"
-	"github.com/skcheng003/webook/internal/web"
+	jwt2 "github.com/skcheng003/webook/internal/web/jwt"
 	"net/http"
 	"time"
 )
 
 type LoginJWTMiddlewareBuilder struct {
 	paths []string
-	cmd   redis.Cmdable
+	jwt2.Handler
 }
 
-func NewLoginJWTMiddlewareBuilder() *LoginJWTMiddlewareBuilder {
-	return &LoginJWTMiddlewareBuilder{}
+func NewLoginJWTMiddlewareBuilder(hdl jwt2.Handler) *LoginJWTMiddlewareBuilder {
+	return &LoginJWTMiddlewareBuilder{
+		Handler: hdl,
+	}
 }
 
 func (l *LoginJWTMiddlewareBuilder) IgnorePath(path ...string) *LoginJWTMiddlewareBuilder {
@@ -36,8 +36,8 @@ func (l *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc {
 			}
 		}
 
-		signedToken := web.ExtractToken(ctx)
-		claims := &web.UserClaims{}
+		signedToken := l.ExtractToken(ctx)
+		claims := &jwt2.UserClaims{}
 		token, err := jwt.ParseWithClaims(signedToken, claims, func(token *jwt.Token) (interface{}, error) {
 			return []byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"), nil
 		})
@@ -53,9 +53,9 @@ func (l *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc {
 		if claims.UserAgent != ctx.Request.UserAgent() {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 		}
-		// ssid 在 redis 中存在记录，用户已经退出登录
-		val := l.cmd.Exists(ctx, fmt.Sprintf("ssid:%s", claims.Ssid)).Val()
-		if val > 0 {
+		// 查询当前 session 是否已经退出
+		err = l.CheckSession(ctx, claims.Ssid)
+		if err != nil {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}

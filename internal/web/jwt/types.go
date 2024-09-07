@@ -25,3 +25,10 @@ type RefreshClaims struct {
 	Ssid string
 	jwt.RegisteredClaims
 }
+
+// Result TODO: 在web包中重复了
+type Result struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+	Data any    `json:"data"`
+}

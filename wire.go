@@ -10,6 +10,7 @@ import (
 	"github.com/skcheng003/webook/internal/repository/dao"
 	"github.com/skcheng003/webook/internal/service"
 	"github.com/skcheng003/webook/internal/web"
+	jwt2 "github.com/skcheng003/webook/internal/web/jwt"
 	"github.com/skcheng003/webook/ioc"
 )
 
@@ -33,6 +34,7 @@ func initWebServer() *gin.Engine {
 		service.NewSMSCodeService,
 
 		web.NewUserHandler,
+		jwt2.NewRedisJWTHandler,
 
 		ioc.InitMiddleWares,
 		ioc.InitGinServer,

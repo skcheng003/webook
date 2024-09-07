@@ -2,12 +2,15 @@ package web
 
 import (
 	"errors"
+	"fmt"
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/redis/go-redis/v9"
 	"github.com/skcheng003/webook/internal/domain"
 	"github.com/skcheng003/webook/internal/service"
+	jwt2 "github.com/skcheng003/webook/internal/web/jwt"
 	"net/http"
 )
 
@@ -27,10 +30,11 @@ type UserHandler struct {
 	emailRegexExp    *regexp.Regexp
 	passwordRegexExp *regexp.Regexp
 	birthRegexExp    *regexp.Regexp
-	jwtHandler
+	jwt2.Handler
+	cmd redis.Cmdable
 }
 
-func NewUserHandler(userSvc service.UserService, codeSvc service.CodeService) *UserHandler {
+func NewUserHandler(userSvc service.UserService, codeSvc service.CodeService, jwtHdl jwt2.Handler) *UserHandler {
 	const (
 		emailRegexPattern    = "^\\w+([-+.]\\w+)*@\\w+([-.]\\w+)*\\.\\w+([-.]\\w+)*$"
 		passwordRegexPattern = `^(?=.*[A-Za-z])(?=.*\d)(?=.*[$@$!%*#?&])[A-Za-z\d$@$!%*#?&]{8,72}$`
@@ -43,7 +47,7 @@ func NewUserHandler(userSvc service.UserService, codeSvc service.CodeService) *U
 		emailRegexExp:    regexp.MustCompile(emailRegexPattern, regexp.None),
 		passwordRegexExp: regexp.MustCompile(passwordRegexPattern, regexp.None),
 		birthRegexExp:    regexp.MustCompile(birthdayRegexPattern, regexp.None),
-		jwtHandler:       newJwtHandler(),
+		Handler:          jwtHdl,
 	}
 }
 
@@ -168,7 +172,7 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 		})
 		return
 	}
-	err = u.setLoginToken(ctx, user.Id)
+	err = u.SetLoginToken(ctx, user.Id)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, Result{
 			Msg: "设置登录token失败",
@@ -187,10 +191,10 @@ func (u *UserHandler) Edit(ctx *gin.Context) {
 		Birth    string `json:"birth"`
 		Bio      string `json:"bio"`
 	}
-	signedToken := ExtractToken(ctx)
-	var claims UserClaims
+	signedToken := u.ExtractToken(ctx)
+	var claims jwt2.UserClaims
 	token, err := jwt.ParseWithClaims(signedToken, &claims, func(token *jwt.Token) (interface{}, error) {
-		return u.accessTokenKey, nil
+		return jwt2.AccessTokenKey, nil
 	})
 	if err != nil || token == nil || !token.Valid {
 		ctx.JSON(http.StatusUnauthorized, Result{
@@ -272,10 +276,10 @@ func (u *UserHandler) Profile(ctx *gin.Context) {
 }
 
 func (u *UserHandler) ProfileJWT(ctx *gin.Context) {
-	signedToken := ExtractToken(ctx)
-	var claims UserClaims
+	signedToken := u.ExtractToken(ctx)
+	var claims jwt2.UserClaims
 	token, err := jwt.ParseWithClaims(signedToken, &claims, func(token *jwt.Token) (interface{}, error) {
-		return u.accessTokenKey, nil
+		return jwt2.AccessTokenKey, nil
 	})
 	if err != nil || token == nil || !token.Valid {
 		ctx.JSON(http.StatusUnauthorized, Result{
@@ -367,7 +371,7 @@ func (u *UserHandler) VerifyLoginSMSCode(ctx *gin.Context) {
 		return
 	}
 
-	err = u.setLoginToken(ctx, user.Id)
+	err = u.SetLoginToken(ctx, user.Id)
 	if err != nil {
 		ctx.JSON(http.StatusOK, Result{
 			Code: 5,
@@ -381,18 +385,37 @@ func (u *UserHandler) VerifyLoginSMSCode(ctx *gin.Context) {
 	})
 }
 
+func (u *UserHandler) LogoutJWT(ctx *gin.Context) {
+	err := u.ClearSession(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "退出登录失败",
+		})
+		return
+	}
+	ctx.JSON(http.StatusOK, Result{
+		Msg: "退出登录成功",
+	})
+}
+
 func (u *UserHandler) RefreshToken(ctx *gin.Context) {
-	signedToken := ExtractToken(ctx)
-	var rc RefreshClaims
-	token, err := jwt.ParseWithClaims(signedToken, &rc, func(token *jwt.Token) (interface{}, error) {
-		return u.refreshTokenKey, nil
+	refreshToken := u.ExtractToken(ctx)
+	var rc jwt2.RefreshClaims
+	token, err := jwt.ParseWithClaims(refreshToken, &rc, func(token *jwt.Token) (interface{}, error) {
+		return jwt2.RefreshTokenKey, nil
 	})
 	if err != nil || token == nil || !token.Valid {
 		ctx.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
+	err = u.cmd.Exists(ctx, fmt.Sprintf("users:ssid:%s", rc.Ssid)).Err()
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
 	// 刷新 AccessToken
-	err = u.setAccessToken(ctx, rc.Uid, rc.Ssid)
+	err = u.SetAccessToken(ctx, rc.Uid, rc.Ssid)
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusUnauthorized)
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/skcheng003/webook/internal/repository/dao"
 	"github.com/skcheng003/webook/internal/service"
 	"github.com/skcheng003/webook/internal/web"
+	"github.com/skcheng003/webook/internal/web/jwt"
 	"github.com/skcheng003/webook/ioc"
 )
 
@@ -20,7 +21,8 @@ import (
 
 func initWebServer() *gin.Engine {
 	cmdable := ioc.InitRedis()
-	v := ioc.InitMiddleWares(cmdable)
+	handler := jwt.NewRedisJWTHandler(cmdable)
+	v := ioc.InitMiddleWares(handler)
 	db := ioc.InitDB()
 	userDao := dao.NewGORMUserDAO(db)
 	userCache := cache.NewRedisUserCache(cmdable)
@@ -30,7 +32,7 @@ func initWebServer() *gin.Engine {
 	codeCache := cache.NewRedisCodeCache(cmdable)
 	codeRepository := repository.NewCachedCodeRepository(codeCache)
 	codeService := service.NewSMSCodeService(smsService, codeRepository)
-	userHandler := web.NewUserHandler(userService, codeService)
+	userHandler := web.NewUserHandler(userService, codeService, handler)
 	engine := ioc.InitGinServer(v, userHandler)
 	return engine
 }
