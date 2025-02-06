@@ -1,0 +1,7 @@
+db.mysql:
+  dsn: "root:739662@tcp(localhost:3306)/webook"
+
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: ""
